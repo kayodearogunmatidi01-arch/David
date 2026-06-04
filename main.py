@@ -2,26 +2,25 @@ import os
 import sys
 import telebot
 
-# Force flush print statements so they show up instantly in Render logs
-print("Initializing bot script...", flush=True)
+# Ensure log outputs stream instantly to Render's logging viewer
+print("=== PRODUCTION BOT INITIALIZATION ===", flush=True)
 
-# Fetch the token from Render's environment variables
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
 if not BOT_TOKEN:
-    print("FATAL ERROR: The environment variable 'BOT_TOKEN' is missing!", flush=True)
-    print("Please add 'BOT_TOKEN' in the Render Dashboard under Environment tab.", flush=True)
+    print("CRITICAL ERROR: 'BOT_TOKEN' environment variable is missing!", flush=True)
     sys.exit(1)
 
 try:
+    # Initialize the bot worker instance
     bot = telebot.TeleBot(BOT_TOKEN)
-    # Test connection by fetching bot details
     bot_info = bot.get_me()
-    print(f"Successfully connected to Telegram! Bot username: @{bot_info.username}", flush=True)
+    print(f"Connection Secure! Running as: @{bot_info.username}", flush=True)
 except Exception as e:
-    print(f"FATAL ERROR: Failed to connect to Telegram. Is your token correct?\nError details: {e}", flush=True)
+    print(f"CRITICAL ERROR: Authentication failed. Check your token value.\nDetails: {e}", flush=True)
     sys.exit(1)
 
+# Exact text structure requested
 WELCOME_MESSAGE = """Hi! I'm your Multi-Utility Bot.
 
 I can perform the following tasks:
@@ -40,16 +39,27 @@ I can perform the following tasks:
 
 Use /cancel to abort any operation."""
 
+# Rule 1: Handle explicit start command
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def handle_start(message):
     try:
-        print(f"Received /start command from user {message.from_user.id}", flush=True)
+        print(f"User {message.from_user.id} triggered /start", flush=True)
         bot.reply_to(message, WELCOME_MESSAGE)
-        print("Welcome message sent successfully.", flush=True)
     except Exception as e:
-        print(f"Error trying to send welcome message: {e}", flush=True)
+        print(f"Messaging error: {e}", flush=True)
+
+# Rule 2: Fallback safety net 
+# If anyone interacts with the bot without a specific command setup yet,
+# it forces the welcome menu to appear instead of ignoring them.
+@bot.message_handler(func=lambda message: True)
+def handle_all_other_messages(message):
+    try:
+        print(f"User {message.from_user.id} sent text: {message.text}. Sending welcome fallback.", flush=True)
+        bot.reply_to(message, WELCOME_MESSAGE)
+    except Exception as e:
+        print(f"Fallback messaging error: {e}", flush=True)
 
 if __name__ == "__main__":
-    print("Bot is now listening for messages (Polling)...", flush=True)
-    # non_stop=True and timeout=60 ensures it won't crash on network hiccups
+    print("Bot engine is spinning up polling systems...", flush=True)
+    # infinity_polling prevents infrastructure network blips from crashing the container
     bot.infinity_polling(timeout=60, long_polling_timeout=5)
