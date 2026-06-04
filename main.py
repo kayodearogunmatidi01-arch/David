@@ -1,15 +1,27 @@
 import os
+import sys
 import telebot
+
+# Force flush print statements so they show up instantly in Render logs
+print("Initializing bot script...", flush=True)
 
 # Fetch the token from Render's environment variables
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
 if not BOT_TOKEN:
-    raise ValueError("No BOT_TOKEN found in environment variables!")
+    print("FATAL ERROR: The environment variable 'BOT_TOKEN' is missing!", flush=True)
+    print("Please add 'BOT_TOKEN' in the Render Dashboard under Environment tab.", flush=True)
+    sys.exit(1)
 
-bot = telebot.TeleBot(BOT_TOKEN)
+try:
+    bot = telebot.TeleBot(BOT_TOKEN)
+    # Test connection by fetching bot details
+    bot_info = bot.get_me()
+    print(f"Successfully connected to Telegram! Bot username: @{bot_info.username}", flush=True)
+except Exception as e:
+    print(f"FATAL ERROR: Failed to connect to Telegram. Is your token correct?\nError details: {e}", flush=True)
+    sys.exit(1)
 
-# Your custom welcome message
 WELCOME_MESSAGE = """Hi! I'm your Multi-Utility Bot.
 
 I can perform the following tasks:
@@ -28,13 +40,16 @@ I can perform the following tasks:
 
 Use /cancel to abort any operation."""
 
-# Handler for the /start command
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # This replies to the user who sent the command (works for anyone)
-    bot.reply_to(message, WELCOME_MESSAGE)
+    try:
+        print(f"Received /start command from user {message.from_user.id}", flush=True)
+        bot.reply_to(message, WELCOME_MESSAGE)
+        print("Welcome message sent successfully.", flush=True)
+    except Exception as e:
+        print(f"Error trying to send welcome message: {e}", flush=True)
 
 if __name__ == "__main__":
-    print("Bot is starting up...")
-    # infinity_polling keeps the bot running and handles errors automatically
-    bot.infinity_polling()
+    print("Bot is now listening for messages (Polling)...", flush=True)
+    # non_stop=True and timeout=60 ensures it won't crash on network hiccups
+    bot.infinity_polling(timeout=60, long_polling_timeout=5)
